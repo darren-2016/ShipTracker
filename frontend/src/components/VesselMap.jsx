@@ -10,6 +10,7 @@ export default function VesselMap() {
     const mapRef = useRef(null);
     const vesselsRef = useRef([]); // <-- ADD THIS: Tracks live positions dynamically
     const [vessels, setVessels] = useState([]);
+    const [streamStatus, setStreamStatus] = useState('offline');
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [isMapReady, setIsMapReady] = useState(false);
@@ -43,19 +44,25 @@ export default function VesselMap() {
         return { type: 'FeatureCollection', features };
     };
 
-   const fetchVesselData = async () => {
+const fetchVesselData = async () => {
         try {
-            const response = await fetch('http://localhost:3000/api/vessels');
+            const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+            const response = await fetch(`${apiUrl}/api/vessels`);
             if (!response.ok) throw new Error('API line disconnected.');
             const result = await response.json();
-            const dataArray = (result && result.success && Array.isArray(result.data)) ? result.data : (Array.isArray(result) ? result : []);
             
-            setVessels(dataArray);
-            vesselsRef.current = dataArray; // <-- ADD THIS: Mirrors the data instantly
+            if (result && result.success) {
+                setVessels(result.data);
+                vesselsRef.current = result.data;
+                setStreamStatus(result.status || 'offline'); 
+            }
             setError(null);
         } catch (err) {
             console.error("Telemetry fetch error:", err);
-            setError("Stream syncing paused.");
+            setError("Local network connection broken.");
+            
+            // FIX: Force UI indicator status to offline when fetch fails completely
+            setStreamStatus('offline'); 
         } finally {
             setLoading(false);
         }
@@ -139,7 +146,7 @@ export default function VesselMap() {
             popup.remove();
         });
     };
-    
+
     // 1. Initial Data Loop
     useEffect(() => {
         fetchVesselData();
@@ -223,6 +230,22 @@ export default function VesselMap() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
                     <Ship style={{ color: mapTheme === 'dark' ? '#38bdf8' : '#ef4444' }} size={18} />
                     <h1 style={{ margin: 0, fontSize: '15px', fontWeight: 'bold' }}>Discovered Fleet</h1>
+                </div>
+
+                {/* Connection Status Indicator Badge */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', margin: '8px 0 12px 0', fontSize: '12px' }}>
+                    <span style={{
+                        width: '8px',
+                        height: '8px',
+                        borderRadius: '50%',
+                        display: 'inline-block',
+                        backgroundColor: streamStatus === 'online' ? '#22c55e' : (streamStatus === 'connecting' ? '#eab308' : '#ef4444'),
+                        boxShadow: streamStatus === 'online' ? '0 0 8px #22c55e' : (streamStatus === 'connecting' ? '0 0 8px #eab308' : '0 0 8px #ef4444'),
+                        animation: streamStatus === 'connecting' ? 'pulse 1.5s infinite ease-in-out' : 'none'
+                    }} />
+                    <span style={{ color: '#94a3b8', textTransform: 'uppercase', fontSize: '10px', letterSpacing: '0.05em', fontWeight: 'bold' }}>
+                        Stream Server: <span style={{ color: streamStatus === 'online' ? '#22c55e' : (streamStatus === 'connecting' ? '#eab308' : '#ef4444') }}>{streamStatus}</span>
+                    </span>
                 </div>
                 
                 {loading ? (
