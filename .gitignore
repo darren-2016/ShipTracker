@@ -1,0 +1,8 @@
+# Dependency directories
+node_modules/
+
+# Local environment variables configuration file
+.env
+
+# OS generated files
+.DS_Store
