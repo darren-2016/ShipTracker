@@ -61,30 +61,63 @@ export default function VesselMap() {
         }
     };
 
-    // Helper function to inject layers safely (used on initial init AND style switches)
+// Helper function to inject layers safely (used on initial init AND style switches)
     const setupMapLayers = (map) => {
         if (map.getSource('vessels-source')) return; // Already exists
 
+        // 1. Generate and Register a Custom Directional Ship Icon
+        // This creates a vector triangle/hull pointer pointing straight UP (0 degrees)
+        if (!map.hasImage('ship-pointer')) {
+            const size = 32;
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+
+            // Draw a crisp, high-visibility maritime vector arrow/hull
+            ctx.beginPath();
+            ctx.moveTo(16, 4);   // Bow (Front pointing Up)
+            ctx.lineTo(26, 26);  // Starboard Quarter
+            ctx.lineTo(16, 20);  // Stern indentation
+            ctx.lineTo(6, 26);   // Port Quarter
+            ctx.closePath();
+
+            // Set color based on active map theme
+            ctx.fillStyle = mapTheme === 'dark' ? '#38bdf8' : '#ef4444'; 
+            ctx.fill();
+            ctx.strokeStyle = '#0f172a';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Bake the canvas object directly into Mapbox's sprite cache
+            map.addImage('ship-pointer', ctx.getImageData(0, 0, size, size));
+        }
+
+        // 2. Define the GeoJSON data source
         map.addSource('vessels-source', {
             type: 'geojson',
-            data: convertToGeoJSON(vessels) // Seed immediately with whatever data we have cached
+            data: convertToGeoJSON(vesselsRef.current) 
         });
 
+        // 3. Mount the new SYMBOL layer (Replaces the old 'circle' type layer)
         map.addLayer({
             id: 'vessels-layer',
-            type: 'circle',
+            type: 'symbol', // Changed from 'circle'
             source: 'vessels-source',
-            paint: {
-                'circle-radius': ['interpolate', ['linear'], ['zoom'], 1, 2, 6, 6, 12, 12],
-                // Change point color based on style theme for better contrast visibility
-                'circle-color': mapTheme === 'dark' ? '#38bdf8' : '#ef4444', 
-                'circle-stroke-width': 1,
-                'circle-stroke-color': '#0f172a'
+            layout: {
+                'icon-image': 'ship-pointer',
+                'icon-size': ['interpolate', ['linear'], ['zoom'], 1, 0.4, 6, 0.7, 12, 1.2],
+                'icon-allow-overlap': true, // Keeps icons visible in high-density areas
+                
+                // THE CRITICAL VECTOR ROTATION BINDING:
+                // Mapbox extracts the 'heading' property from GeoJSON properties and applies it
+                'icon-rotate': ['get', 'heading'],
+                'icon-rotation-alignment': 'map' // Locks orientation relative to North, not the viewport
             }
         });
 
-        // Tooltip logic
-        const popup = new mapboxgl.Popup({ closeButton: false, closeOnClick: false, offset: 10 });
+        // 4. Mobile-Responsive Tooltip Popup logic
+        const popup = new mapboxgl.Popup({ closeButton: false, closeOnClick: false, offset: 12 });
 
         map.on('mouseenter', 'vessels-layer', (e) => {
             map.getCanvas().style.cursor = 'pointer';
@@ -92,8 +125,8 @@ export default function VesselMap() {
             const { name, mmsi, speed, heading } = e.features[0].properties;
 
             popup.setLngLat(coordinates).setHTML(`
-                <div style="font-family: sans-serif; padding: 4px; color: #1e293b; line-height: 1.4;">
-                    <h3 style="margin: 0 0 4px 0; font-size: 13px; color: #0284c7; font-weight: bold;">${name}</h3>
+                <div style="font-family: sans-serif; padding: 4px; color: #1e293b; line-height: 1.4; width: 140px;">
+                    <h3 style="margin: 0 0 4px 0; font-size: 12px; color: #0284c7; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${name}</h3>
                     <p style="margin: 0; font-size: 11px;"><b>MMSI:</b> ${mmsi}</p>
                     <p style="margin: 0; font-size: 11px;"><b>Speed:</b> ${speed} kts</p>
                     <p style="margin: 0; font-size: 11px;"><b>Heading:</b> ${heading}°</p>
@@ -106,7 +139,7 @@ export default function VesselMap() {
             popup.remove();
         });
     };
-
+    
     // 1. Initial Data Loop
     useEffect(() => {
         fetchVesselData();
