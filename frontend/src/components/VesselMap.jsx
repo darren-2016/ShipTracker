@@ -8,6 +8,7 @@ mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
 
 export default function VesselMap() {
     const mapRef = useRef(null);
+    const vesselsRef = useRef([]); // <-- ADD THIS: Tracks live positions dynamically
     const [vessels, setVessels] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -42,13 +43,15 @@ export default function VesselMap() {
         return { type: 'FeatureCollection', features };
     };
 
-    const fetchVesselData = async () => {
+   const fetchVesselData = async () => {
         try {
             const response = await fetch('http://localhost:3000/api/vessels');
             if (!response.ok) throw new Error('API line disconnected.');
             const result = await response.json();
             const dataArray = (result && result.success && Array.isArray(result.data)) ? result.data : (Array.isArray(result) ? result : []);
+            
             setVessels(dataArray);
+            vesselsRef.current = dataArray; // <-- ADD THIS: Mirrors the data instantly
             setError(null);
         } catch (err) {
             console.error("Telemetry fetch error:", err);
@@ -116,7 +119,6 @@ export default function VesselMap() {
         const containerCheck = document.getElementById('mapbox-canvas-viewport');
         if (mapRef.current || !containerCheck) return;
 
-        console.log("Mounting core map canvas viewport...");
         mapRef.current = new mapboxgl.Map({
             container: 'mapbox-canvas-viewport',
             style: mapStyles[mapTheme], 
@@ -132,13 +134,12 @@ export default function VesselMap() {
             setIsMapReady(true);
         });
 
+        // FIXED: Reads the current data from the live ref mirror, bypassing React closure traps
         map.on('style.load', () => {
             setupMapLayers(map);
-            // Dynamic check using a functional closure trick to get current data state safely
-            const currentMap = mapRef.current;
-            if (currentMap) {
-                const source = currentMap.getSource('vessels-source');
-                if (source) source.setData(convertToGeoJSON(vessels));
+            const source = map.getSource('vessels-source');
+            if (source) {
+                source.setData(convertToGeoJSON(vesselsRef.current));
             }
         });
 
@@ -148,7 +149,7 @@ export default function VesselMap() {
                 mapRef.current = null;
             }
         };
-    }, []); // <-- FIX: Must be completely empty so it never re-initializes!
+    }, []); // <-- Kept empty so your zoom level never snaps back on refresh!
 
     // 3. Dynamic Theme Change Trigger
     useEffect(() => {
@@ -176,7 +177,7 @@ export default function VesselMap() {
             }
         }
     }, [vessels, isMapReady, mapTheme]); // Keeps tracking updates independent of map instances
-    
+
     return (
         <div style={{ position: 'relative', width: '100vw', height: '100vh', backgroundColor: '#0f172a', margin: 0, padding: 0 }}>
             
