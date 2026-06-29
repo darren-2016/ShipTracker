@@ -18,7 +18,9 @@ function connectAISStream() {
             BoundingBoxes: [
                 [[-90, -180], [90, 180]]
             ],
-            FilterMessageTypes: ["PositionReport"]
+            FilterMessageTypes: ["PositionReport"],
+            // NEW: Only ingest Passenger Ships (Class 60-69 covers cruise liners and ferries)
+            FilterShipTypes: [60, 61, 62, 63, 64, 65, 66, 67, 68, 69]
         };
 
         ws.send(JSON.stringify(subscriptionMessage));
