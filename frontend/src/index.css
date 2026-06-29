@@ -1,0 +1,29 @@
+/* frontend/src/index.css */
+
+/* 1. Reset all global layout containers to fill the viewport */
+html, body, #root {
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  overflow: hidden !important;
+  background-color: #0f172a !important;
+}
+
+/* 2. Force the map canvas anchor to expand fully */
+div[ref="mapContainer"],
+.mapboxgl-map,
+.mapboxgl-canvas-container,
+.mapboxgl-canvas {
+  width: 100% !important;
+  height: 100% !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+}
+
+/* 3. Keep the dashboard floating perfectly on top */
+.mapboxgl-control-container {
+  position: relative;
+  z-index: 5;
+}

@@ -1,11 +1,18 @@
 // src/index.js
 require('dotenv').config(); 
 const express = require('express');
+const cors = require('cors');
 const { connectAISStream } = require('./services/aisWorker');
 const { getLiveFleet } = require('./controllers/vesselController');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+
+// 2. ADD THIS LINE right below your app definition:
+app.use(cors({
+    origin: 'http://localhost:5173' // Explicitly allows your Vite app access
+}));
 
 // Regular body parsing middleware 
 app.use(express.json());
