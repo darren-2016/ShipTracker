@@ -1,12 +1,34 @@
 // src/index.js
-
-// 1. THIS MUST BE LINE 1. It loads your .env variables before anything else runs!
 require('dotenv').config(); 
-
-// 2. Now import your modules safely
+const express = require('express');
 const { connectAISStream } = require('./services/aisWorker');
+const { getLiveFleet } = require('./controllers/vesselController');
 
-console.log("Initializing Cruise Ship Tracking Architecture...");
+const app = express();
+const PORT = process.env.PORT || 3000;
 
-// 3. Fire up your live WebSocket stream
-connectAISStream();
+// Regular body parsing middleware 
+app.use(express.json());
+
+// ------------------------------------------------------------------
+// 1. HTTP API ENDPOINTS (Phase 3 Backend)
+// ------------------------------------------------------------------
+app.get('/api/vessels', getLiveFleet);
+
+// Simple health check endpoint
+app.get('/api/health', (req, res) => {
+    res.status(200).json({ status: "UP", service: "Cruise Ship Tracking Engine" });
+});
+
+// ------------------------------------------------------------------
+// 2. KICKSTART SERVER AND INGESTION AGENTS
+// ------------------------------------------------------------------
+app.listen(PORT, () => {
+    console.log(`====================================================`);
+    console.log(`🚀 API Gateway active on: http://localhost:${PORT}`);
+    console.log(`====================================================`);
+    
+    // Fire up your background WebSocket listener stream simultaneously
+    console.log("Initializing Background Live Ingestion Engine...");
+    connectAISStream();
+});
